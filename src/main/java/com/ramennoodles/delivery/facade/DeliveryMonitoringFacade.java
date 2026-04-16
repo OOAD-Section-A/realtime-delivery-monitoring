@@ -8,6 +8,9 @@ import com.ramennoodles.delivery.strategy.*;
 
 import java.util.*;
 
+import com.scm.exceptions.*;
+import com.scm.exceptions.categories.*;
+
 /**
  * ═══════════════════════════════════════════════════════════════
  * DELIVERY MONITORING FACADE
@@ -28,7 +31,78 @@ import java.util.*;
  * - RoutePlanService
  * - FleetDashboardService
  */
-public class DeliveryMonitoringFacade {
+public class DeliveryMonitoringFacade implements 
+        IInputValidationExceptionSource, 
+        IConnectivityExceptionSource, 
+        IConcurrencyExceptionSource, 
+        IResourceAvailabilityExceptionSource, 
+        IStateWorkflowExceptionSource, 
+        IDataIntegrityExceptionSource, 
+        ISystemInfrastructureExceptionSource, 
+        ISensorPhysicalExceptionSource, 
+        IMLAlgorithmicExceptionSource {
+
+    private SCMExceptionHandler handler;
+
+    @Override
+    public void registerHandler(SCMExceptionHandler h) {
+        this.handler = h;
+    }
+
+    private static class ExceptionEntry {
+        String name; Severity severity; String subsystem; String message;
+        ExceptionEntry(String n, Severity s, String sub, String m) {
+            this.name = n; this.severity = s; this.subsystem = sub; this.message = m;
+        }
+    }
+
+    private ExceptionEntry getEntry(int id) {
+        switch(id) {
+            case 10: return new ExceptionEntry("INVALID_VEHICLE_ASSIGNMENT", Severity.MINOR, "Real-Time Delivery", "Vehicle assignment references a vehicle not in the fleet.");
+            case 21: return new ExceptionEntry("DELIVERY_STATUS_TRANSITION_INVALID", Severity.MINOR, "Delivery Orders", "Attempted delivery status update represents an invalid transition.");
+            case 54: return new ExceptionEntry("CARRIER_API_TIMEOUT", Severity.MAJOR, "Real-Time Delivery", "Carrier API did not respond within the expected window.");
+            case 58: return new ExceptionEntry("TRAFFIC_DATA_UNAVAILABLE", Severity.WARNING, "Real-Time Delivery", "Live traffic data feed is unavailable.");
+            case 59: return new ExceptionEntry("GPS_SIGNAL_LOST", Severity.MAJOR, "Real-Time Delivery", "GPS signal from delivery vehicle is lost.");
+            case 60: return new ExceptionEntry("IOT_SENSOR_FAILURE", Severity.MAJOR, "Real-Time Delivery", "IoT sensor on vehicle is not transmitting.");
+            case 61: return new ExceptionEntry("NOTIFICATION_SEND_FAILURE", Severity.MINOR, "Real-Time Delivery", "Notification service failed to deliver message.");
+            case 63: return new ExceptionEntry("EPOD_UPLOAD_FAILURE", Severity.MAJOR, "Real-Time Delivery", "Electronic proof of delivery could not be uploaded.");
+            case 64: return new ExceptionEntry("NOTIFICATION_DISPATCH_FAILED", Severity.WARNING, "Delivery Orders", "DeliveryNotificationService failed to send a status update or the customer.");
+            case 65: return new ExceptionEntry("REAL_TIME_STATUS_PUSH_FAILED", Severity.WARNING, "Delivery Orders", "Delivery status update could not be pushed to Real-Time Monitoring.");
+            case 109: return new ExceptionEntry("DUPLICATE_POD_SUBMISSION", Severity.MINOR, "Real-Time Delivery", "Duplicate proof-of-delivery submission detected.");
+            case 168: return new ExceptionEntry("AGENT_NOT_FOUND", Severity.MINOR, "Delivery Orders", "Referenced delivery agent does not exist in the DeliveryAgents table.");
+            case 169: return new ExceptionEntry("DELIVERY_ORDER_NOT_FOUND", Severity.MINOR, "Delivery Orders", "Requested delivery order does not exist for the given delivery ID.");
+            case 170: return new ExceptionEntry("ROUTE_INFORMATION_UNAVAILABLE", Severity.MINOR, "Delivery Orders", "Route information for the delivery agent could not be retrieved.");
+            case 171: return new ExceptionEntry("CUSTOMER_RECORD_NOT_FOUND", Severity.MAJOR, "Delivery Orders", "Customer record referenced by customer_id does not exist.");
+            case 211: return new ExceptionEntry("DELIVERY_TIMEOUT", Severity.MAJOR, "Real-Time Delivery", "Delivery has exceeded its maximum allowed time window.");
+            case 213: return new ExceptionEntry("PARTIAL_DELIVERY_RECORDED", Severity.WARNING, "Real-Time Delivery", "Only part of the order was delivered.");
+            case 214: return new ExceptionEntry("PACKING_NOT_CONFIRMED", Severity.MAJOR, "Delivery Orders", "Warehouse Management has not confirmed packing for the delivery.");
+            case 215: return new ExceptionEntry("DELIVERY_CANCELLATION_FAILED", Severity.MAJOR, "Delivery Orders", "Delivery order cancellation could not be completed.");
+            case 216: return new ExceptionEntry("DISPATCH_CONFIRMATION_MISSING", Severity.WARNING, "Delivery Orders", "Dispatch confirmation not received within expected timeframe.");
+            case 319: return new ExceptionEntry("DUPLICATE_DELIVERY_ORDER", Severity.MAJOR, "Delivery Orders", "Attempt to create a delivery order for an order_id that already has an active delivery record.");
+            case 320: return new ExceptionEntry("DELIVERY_STATUS_HISTORY_INSERT_FAILED", Severity.MINOR, "Delivery Orders", "Failed to insert a status update record into DeliveryStatusHistory.");
+            case 366: return new ExceptionEntry("HISTORICAL_PLAYBACK_DATA_MISSING", Severity.WARNING, "Real-Time Delivery", "Historical playback data for route analysis is unavailable.");
+            case 367: return new ExceptionEntry("DELIVERY_ORDER_CREATION_FAILED", Severity.MAJOR, "Delivery Orders", "Failed to create a new delivery order due to a database insert error.");
+            case 368: return new ExceptionEntry("AGENT_ASSIGNMENT_FAILED", Severity.MAJOR, "Delivery Orders", "No available delivery agent could be assigned to the delivery order.");
+            case 369: return new ExceptionEntry("ORDER_PAYMENT_NOT_CONFIRMED", Severity.MAJOR, "Delivery Orders", "Delivery order creation rejected because payment status is unconfirmed.");
+            case 370: return new ExceptionEntry("ORDER_NOT_FOUND_IN_FULFILLMENT", Severity.MAJOR, "Delivery Orders", "The referenced order_id does not exist in the Order Fulfilment subsystem.");
+            case 371: return new ExceptionEntry("INVENTORY_UNAVAILABLE", Severity.MAJOR, "Delivery Orders", "Required product inventory is insufficient or unavailable for the delivery order.");
+            case 372: return new ExceptionEntry("DELIVERY_COST_CALCULATION_ERROR", Severity.MINOR, "Delivery Orders", "DeliveryCostCalculator encountered invalid or missing input data.");
+            case 401: return new ExceptionEntry("GEOFENCE_BREACH", Severity.MAJOR, "Real-Time Delivery", "Delivery vehicle has left the permitted geofence.");
+            case 402: return new ExceptionEntry("TEMPERATURE_THRESHOLD_BREACH", Severity.MAJOR, "Real-Time Delivery", "Temperature-sensitive cargo has exceeded its safe range.");
+            case 403: return new ExceptionEntry("ROUTE_DEVIATION_DETECTED", Severity.MAJOR, "Real-Time Delivery", "Vehicle is deviating from the assigned route.");
+            case 404: return new ExceptionEntry("DRIVER_UNRESPONSIVE", Severity.MAJOR, "Real-Time Delivery", "Driver has not responded to check-in prompts.");
+            case 405: return new ExceptionEntry("LOW_DEVICE_BATTERY", Severity.WARNING, "Real-Time Delivery", "Driver tracking device battery is critically low.");
+            case 406: return new ExceptionEntry("STALE_LOCATION_DATA", Severity.MINOR, "Real-Time Delivery", "Location data has not been updated within the expected window.");
+            case 461: return new ExceptionEntry("ETA_RECALCULATION_FAILURE", Severity.MINOR, "Real-Time Delivery", "ETA recalculation service returned an error.");
+            default: return new ExceptionEntry("UNREGISTERED_EXCEPTION", Severity.MINOR, "Real-Time Delivery", "An unregistered exception occurred.");
+        }
+    }
+
+    private void raise(int id, String detail) {
+        if (handler == null) return;
+        ExceptionEntry e = getEntry(id);
+        handler.handle(new SCMExceptionEvent(id, e.name, e.severity, e.subsystem, e.message, detail));
+    }
 
     // Core services
     private final GPSTrackingService gpsService;
@@ -111,38 +185,48 @@ public class DeliveryMonitoringFacade {
     public Order createAndInitializeDelivery(String customerId, String pickupAddress,
                                               String dropoffAddress, Coordinate pickupCoord,
                                               Coordinate dropoffCoord) {
-        // Create order
-        Order order = Order.create(customerId, pickupAddress, dropoffAddress,
-                pickupCoord, dropoffCoord);
-        orders.put(order.getOrderId(), order);
+        if (!customers.containsKey(customerId)) {
+            fireResourceNotFound(171, "Customer", customerId);
+            return null;
+        }
 
-        // Initialize status tracking
-        statusService.initializeOrder(order.getOrderId());
+        try {
+            // Create order
+            Order order = Order.create(customerId, pickupAddress, dropoffAddress,
+                    pickupCoord, dropoffCoord);
+            orders.put(order.getOrderId(), order);
 
-        // Register destination for ETA
-        etaService.registerOrderDestination(order.getOrderId(), dropoffCoord);
+            // Initialize status tracking
+            statusService.initializeOrder(order.getOrderId());
 
-        // Create geofence zones (200m radius)
-        geofencingService.createZonesForOrder(order, 200);
+            // Register destination for ETA
+            etaService.registerOrderDestination(order.getOrderId(), dropoffCoord);
 
-        // Create route plan
-        routePlanService.createRoutePlan(order.getOrderId(), pickupCoord, dropoffCoord);
+            // Create geofence zones (200m radius)
+            geofencingService.createZonesForOrder(order, 200);
 
-        // Track in dashboard
-        dashboardService.trackOrder(order);
+            // Create route plan
+            routePlanService.createRoutePlan(order.getOrderId(), pickupCoord, dropoffCoord);
 
-        // Publish event
-        Map<String, Object> eventData = new HashMap<>();
-        eventData.put("orderId", order.getOrderId());
-        eventData.put("customerId", customerId);
-        eventManager.publish(DeliveryEventType.ORDER_CREATED, eventData);
+            // Track in dashboard
+            dashboardService.trackOrder(order);
 
-        // Notify customer
-        notificationService.notifyMilestone(order.getOrderId(), customerId,
-                "Your order has been placed! We'll notify you when a rider is assigned.");
+            // Publish event
+            Map<String, Object> eventData = new HashMap<>();
+            eventData.put("orderId", order.getOrderId());
+            eventData.put("customerId", customerId);
+            eventManager.publish(DeliveryEventType.ORDER_CREATED, eventData);
 
-        System.out.println("✅ Order created: " + order);
-        return order;
+            // Notify customer
+            notificationService.notifyMilestone(order.getOrderId(), customerId,
+                    "Your order has been placed! We'll notify you when a rider is assigned.");
+
+            System.out.println("✅ Order created: " + order);
+            return order;
+        } catch (Exception e) {
+            firePlatformFailure(367, "DeliveryOrderDB", "INSERT", e.getMessage());
+            return null;
+        }
     }
 
     /**
@@ -152,29 +236,41 @@ public class DeliveryMonitoringFacade {
         Order order = orders.get(orderId);
         Rider rider = riders.get(riderId);
 
-        if (order == null) throw new IllegalArgumentException("Unknown order: " + orderId);
-        if (rider == null) throw new IllegalArgumentException("Unknown rider: " + riderId);
+        if (order == null) {
+            fireResourceNotFound(169, "DeliveryOrder", orderId);
+            return;
+        }
+        if (rider == null) {
+            fireResourceNotFound(168, "DeliveryAgent", riderId);
+            return;
+        }
 
-        // Assign rider
-        order.assignRider(riderId);
-        routePlanService.assignRider(orderId, riderId);
-        rider.updateStatus(RiderStatus.ON_DELIVERY);
+        try {
+            // Assign rider
+            order.assignRider(riderId);
+            routePlanService.assignRider(orderId, riderId);
+            rider.updateStatus(RiderStatus.ON_DELIVERY);
 
-        // Update status
-        statusService.updateStatus(orderId, OrderStatus.ASSIGNED, "SYSTEM", "system");
+            // Update status
+            statusService.updateStatus(orderId, OrderStatus.ASSIGNED, "SYSTEM", "system");
 
-        // Publish event
-        Map<String, Object> eventData = new HashMap<>();
-        eventData.put("orderId", orderId);
-        eventData.put("riderId", riderId);
-        eventData.put("riderName", rider.getName());
-        eventManager.publish(DeliveryEventType.RIDER_ASSIGNED, eventData);
+            // Publish event
+            Map<String, Object> eventData = new HashMap<>();
+            eventData.put("orderId", orderId);
+            eventData.put("riderId", riderId);
+            eventData.put("riderName", rider.getName());
+            eventManager.publish(DeliveryEventType.RIDER_ASSIGNED, eventData);
 
-        // Notify customer
-        notificationService.notifyMilestone(orderId, order.getCustomerId(),
-                "Rider " + rider.getName() + " has been assigned to your delivery!");
+            // Notify customer
+            notificationService.notifyMilestone(orderId, order.getCustomerId(),
+                    "Rider " + rider.getName() + " has been assigned to your delivery!");
 
-        System.out.println("✅ Rider " + rider.getName() + " assigned to order " + orderId);
+            System.out.println("✅ Rider " + rider.getName() + " assigned to order " + orderId);
+        } catch (IllegalStateException e) {
+            fireInvalidStateTransition(21, orderId, order.getStatus().toString(), OrderStatus.ASSIGNED.toString());
+        } catch (Exception e) {
+            fireProcessingError(368, "AgentAssignment", orderId, e.getMessage());
+        }
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -241,10 +337,18 @@ public class DeliveryMonitoringFacade {
      */
     public void updateOrderStatus(String orderId, OrderStatus newStatus, String changedBy) {
         Order order = orders.get(orderId);
-        if (order == null) throw new IllegalArgumentException("Unknown order: " + orderId);
+        if (order == null) {
+            fireResourceNotFound(169, "DeliveryOrder", orderId);
+            return;
+        }
 
-        statusService.updateStatus(orderId, newStatus, "MANUAL", changedBy);
-        order.updateStatus(newStatus);
+        try {
+            statusService.updateStatus(orderId, newStatus, "MANUAL", changedBy);
+            order.updateStatus(newStatus);
+        } catch (IllegalStateException e) {
+            fireInvalidStateTransition(21, orderId, order.getStatus().toString(), newStatus.toString());
+            return;
+        }
 
         // Send milestone notifications
         String message;
@@ -267,7 +371,12 @@ public class DeliveryMonitoringFacade {
             default:
                 message = "Order status updated to: " + newStatus.getDescription();
         }
-        notificationService.notifyMilestone(orderId, order.getCustomerId(), message);
+        
+        try {
+            notificationService.notifyMilestone(orderId, order.getCustomerId(), message);
+        } catch (Exception e) {
+            firePartialConnectivity(61, "NotificationService", "SMS/Email send");
+        }
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -280,16 +389,35 @@ public class DeliveryMonitoringFacade {
     public PODRecord completeDelivery(String orderId, String signatureFile,
                                        String photoFile, String notes) {
         Order order = orders.get(orderId);
-        if (order == null) throw new IllegalArgumentException("Unknown order: " + orderId);
+        if (order == null) {
+            fireResourceNotFound(169, "DeliveryOrder", orderId);
+            return null;
+        }
+
+        if (podService.hasPOD(orderId)) {
+            fireDuplicateSubmission(109, "POD", orderId);
+            return null;
+        }
 
         String riderId = order.getRiderId();
 
-        // Submit POD
-        PODRecord pod = podService.submitPOD(orderId, signatureFile, photoFile, notes, riderId);
-
-        // Update status to DELIVERED
-        statusService.updateStatus(orderId, OrderStatus.DELIVERED, "POD", riderId);
-        order.updateStatus(OrderStatus.DELIVERED);
+        PODRecord pod = null;
+        try {
+            // Submit POD
+            pod = podService.submitPOD(orderId, signatureFile, photoFile, notes, riderId);
+        } catch (Exception e) {
+            firePartialConnectivity(63, "S3UploadService", "EPOD upload");
+            return null;
+        }
+        
+        try {
+            // Update status to DELIVERED
+            statusService.updateStatus(orderId, OrderStatus.DELIVERED, "POD", riderId);
+            order.updateStatus(OrderStatus.DELIVERED);
+        } catch (Exception e) {
+            fireWriteFailure(320, "DeliveryStatusHistory", orderId, "INSERT");
+            return null;
+        }
 
         // Release rider
         Rider rider = riders.get(riderId);
@@ -298,8 +426,12 @@ public class DeliveryMonitoringFacade {
         }
 
         // Notify customer
-        notificationService.notifyMilestone(orderId, order.getCustomerId(),
-                "Your order has been delivered! Thank you for choosing our service. 🎉");
+        try {
+            notificationService.notifyMilestone(orderId, order.getCustomerId(),
+                    "Your order has been delivered! Thank you for choosing our service. 🎉");
+        } catch (Exception e) {
+            firePartialConnectivity(61, "NotificationService", "SMS/Email send");
+        }
 
         System.out.println("✅ Delivery completed for order " + orderId);
         return pod;
@@ -384,4 +516,62 @@ public class DeliveryMonitoringFacade {
     public Map<String, Customer> getCustomers() { return Collections.unmodifiableMap(customers); }
     public Map<String, Rider> getRiders() { return Collections.unmodifiableMap(riders); }
     public NotificationService getNotificationService() { return notificationService; }
+
+    // ─────────────────────────────────────────────────────────────
+    // CATEGORY INTERFACE IMPLEMENTATIONS (All 31 fire* methods)
+    // ─────────────────────────────────────────────────────────────
+
+    // Category 1
+    @Override public void fireInvalidInput(int id, String fieldName, String receivedValue, String rule) { raise(id, String.format("Field '%s' failed rule '%s'. Received: %s", fieldName, rule, receivedValue)); }
+    @Override public void fireInvalidReference(int id, String refType, String refValue) { raise(id, String.format("Invalid reference %s: %s", refType, refValue)); }
+    @Override public void fireConfigurationError(int id, String configKey, String reason) { raise(id, String.format("Config error for '%s': %s", configKey, reason)); }
+    @Override public void fireInvalidStateTransition(int id, String entityId, String fromState, String toState) { raise(id, String.format("Entity %s invalid transition %s -> %s", entityId, fromState, toState)); }
+    @Override public void fireValidationFailure(int id, String entityType, String entityId, String reason) { raise(id, String.format("%s %s failed validation: %s", entityType, entityId, reason)); }
+
+    // Category 2
+    @Override public void fireConnectionFailed(int id, String targetSystem, String host) { raise(id, String.format("Connection failed to %s at %s", targetSystem, host)); }
+    @Override public void fireTimeout(int id, String targetSystem, int timeoutMs) { raise(id, String.format("Timeout accessing %s after %d ms", targetSystem, timeoutMs)); }
+    @Override public void fireServiceUnavailable(int id, String targetSystem, String reason) { raise(id, String.format("Service %s unavailable: %s", targetSystem, reason)); }
+    @Override public void firePartialConnectivity(int id, String targetSystem, String degradedCapability) { raise(id, String.format("Degraded %s capability on system %s", degradedCapability, targetSystem)); }
+
+    // Category 3
+    @Override public void fireDeadlock(int id, String entityType, String entityId, String operation) { raise(id, String.format("Deadlock on %s %s during %s", entityType, entityId, operation)); }
+    @Override public void fireRollbackFailed(int id, String entityType, String entityId) { raise(id, String.format("Rollback failed for %s %s", entityType, entityId)); }
+    @Override public void fireConflict(int id, String entityType, String entityId, String conflictReason) { raise(id, String.format("Conflict on %s %s: %s", entityType, entityId, conflictReason)); }
+    @Override public void fireDuplicateSubmission(int id, String entityType, String entityId) { raise(id, String.format("Duplicate submission for %s %s", entityType, entityId)); }
+
+    // Category 4
+    @Override public void fireResourceNotFound(int id, String resourceType, String resourceId) { raise(id, String.format("%s not found: %s", resourceType, resourceId)); }
+    @Override public void fireResourceExhausted(int id, String resourceType, String resourceId, int requested, int available) { raise(id, String.format("Resource %s:%s exhausted. Requested: %d, Available: %d", resourceType, resourceId, requested, available)); }
+    @Override public void fireResourceBlocked(int id, String resourceType, String resourceId, String reason) { raise(id, String.format("Resource %s:%s blocked: %s", resourceType, resourceId, reason)); }
+    @Override public void fireCapacityExceeded(int id, String resourceType, String resourceId, int limit) { raise(id, String.format("Capacity exceeded for %s:%s (Limit: %d)", resourceType, resourceId, limit)); }
+
+    // Category 5
+    @Override public void fireInvalidEntityState(int id, String entityType, String entityId, String currentState, String requiredState) { raise(id, String.format("%s %s is in state %s, required: %s", entityType, entityId, currentState, requiredState)); }
+    @Override public void fireWorkflowTimeout(int id, String workflowName, String entityId, long elapsedMs) { raise(id, String.format("Workflow %s timed out for entity %s after %d ms", workflowName, entityId, elapsedMs)); }
+    @Override public void fireExpiredEntity(int id, String entityType, String entityId, String expiredAttribute) { raise(id, String.format("%s %s expired at attribute: %s", entityType, entityId, expiredAttribute)); }
+    @Override public void fireSLABreach(int id, String processName, String entityId, long slaMs, long actualMs) { raise(id, String.format("SLA Breach in %s for %s. SLA: %d ms, Actual: %d ms", processName, entityId, slaMs, actualMs)); }
+
+    // Category 7
+    @Override public void fireDuplicateRecord(int id, String entityType, String duplicateKey) { raise(id, String.format("Duplicate %s record with key %s", entityType, duplicateKey)); }
+    @Override public void fireReferentialViolation(int id, String childEntity, String parentEntity, String key) { raise(id, String.format("Referential violation: %s depends on missing %s %s", childEntity, parentEntity, key)); }
+    @Override public void fireDataInconsistency(int id, String entityType, String entityId, String description) { raise(id, String.format("Data inconsistency in %s %s: %s", entityType, entityId, description)); }
+    @Override public void fireWriteFailure(int id, String entityType, String entityId, String operation) { raise(id, String.format("Write failure on %s %s during %s", entityType, entityId, operation)); }
+
+    // Category 8
+    @Override public void firePlatformFailure(int id, String component, String operation, String detail) { raise(id, String.format("Platform failure in %s during %s: %s", component, operation, detail)); }
+    @Override public void fireProcessingError(int id, String processName, String entityId, String reason) { raise(id, String.format("Processing error in %s for %s: %s", processName, entityId, reason)); }
+    @Override public void firePerformanceDegradation(int id, String component, long thresholdMs, long actualMs) { raise(id, String.format("Degradation in %s. Threshold: %d ms, Actual: %d ms", component, thresholdMs, actualMs)); }
+    @Override public void fireRenderOrFormatError(int id, String component, String format, String reason) { raise(id, String.format("Render error in %s for format %s: %s", component, format, reason)); }
+
+    // Category 9
+    @Override public void fireSafetyAlert(int id, String vehicleOrAssetId, double latitude, double longitude, String detail) { raise(id, String.format("Safety alert for %s at [%f, %f]: %s", vehicleOrAssetId, latitude, longitude, detail)); }
+    @Override public void fireDeviceWarning(int id, String deviceId, String deviceType, String condition) { raise(id, String.format("Warning for %s %s: %s", deviceType, deviceId, condition)); }
+    @Override public void fireScanError(int id, String scannerLocation, String tagOrBarcode, String reason) { raise(id, String.format("Scan error at %s for %s: %s", scannerLocation, tagOrBarcode, reason)); }
+
+    // Category 10
+    @Override public void fireModelFailure(int id, String modelName, String reason) { raise(id, String.format("Model %s failed: %s", modelName, reason)); }
+    @Override public void fireModelDegradation(int id, String modelName, String metric, double threshold, double actual) { raise(id, String.format("Model %s degraded on %s. Threshold: %f, Actual: %f", modelName, metric, threshold, actual)); }
+    @Override public void fireMissingInputData(int id, String modelName, String missingDataType, String affectedPeriod) { raise(id, String.format("Model %s missing %s data for period %s", modelName, missingDataType, affectedPeriod)); }
+    @Override public void fireAlgorithmicAlert(int id, String processName, String entityId, String detail) { raise(id, String.format("Alert from %s for %s: %s", processName, entityId, detail)); }
 }
