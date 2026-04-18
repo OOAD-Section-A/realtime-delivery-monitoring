@@ -58,7 +58,7 @@ public class GPSTrackingService {
         eventData.put("latitude", latitude);
         eventData.put("longitude", longitude);
         eventData.put("pingId", ping.getPingId());
-        eventData.put("timestamp", ping.getTimestamp().toString());
+        eventData.put("timestamp", ping.getTimestampAsLocal().toString()); // Use LocalDateTime
         eventManager.publish(DeliveryEventType.LOCATION_UPDATED, eventData);
 
         return ping;

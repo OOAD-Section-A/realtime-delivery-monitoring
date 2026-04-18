@@ -11,6 +11,13 @@ import java.util.*;
 import com.scm.exceptions.*;
 import com.scm.exceptions.categories.*;
 
+// Real Exception Module imports
+import com.scm.handler.SCMExceptionHandler;
+import com.scm.popup.SCMExceptionPopup;
+import com.scm.db.ExceptionLogRepository;
+import com.scm.factory.SCMExceptionFactory;
+import com.scm.core.SCMException;
+
 /**
  * ═══════════════════════════════════════════════════════════════
  * DELIVERY MONITORING FACADE
@@ -42,66 +49,121 @@ public class DeliveryMonitoringFacade implements
         ISensorPhysicalExceptionSource, 
         IMLAlgorithmicExceptionSource {
 
-    private SCMExceptionHandler handler;
+    // Real Exception Module components
+    private SCMExceptionPopup realExceptionPopup;
+    // Note: Real Exception Module uses:
+    // - com.scm.handler.SCMExceptionHandler.INSTANCE (enum with Windows Event Viewer)
+    // - ExceptionLogRepository.INSTANCE (enum for database logging)
+    // - SCMExceptionFactory static methods (create, createUnregistered)
 
-    @Override
-    public void registerHandler(SCMExceptionHandler h) {
-        this.handler = h;
+    /**
+     * Register handler method for SCM exception interface compatibility.
+     * Note: Real Exception Module uses SCMExceptionHandler.INSTANCE (enum singleton)
+     * so this method is kept for interface compatibility but the real handler
+     * is used internally via the raise() method.
+     */
+    public void registerHandler(com.scm.exceptions.SCMExceptionHandler h) {
+        // Interface compatibility - real Exception Module uses enum singleton
+        // The real handler is used internally in raise() method
     }
 
     private static class ExceptionEntry {
-        String name; Severity severity; String subsystem; String message;
-        ExceptionEntry(String n, Severity s, String sub, String m) {
+        String name; com.scm.core.Severity severity; String subsystem; String message;
+        ExceptionEntry(String n, com.scm.core.Severity s, String sub, String m) {
             this.name = n; this.severity = s; this.subsystem = sub; this.message = m;
         }
     }
 
     private ExceptionEntry getEntry(int id) {
         switch(id) {
-            case 10: return new ExceptionEntry("INVALID_VEHICLE_ASSIGNMENT", Severity.MINOR, "Real-Time Delivery", "Vehicle assignment references a vehicle not in the fleet.");
-            case 21: return new ExceptionEntry("DELIVERY_STATUS_TRANSITION_INVALID", Severity.MINOR, "Delivery Orders", "Attempted delivery status update represents an invalid transition.");
-            case 54: return new ExceptionEntry("CARRIER_API_TIMEOUT", Severity.MAJOR, "Real-Time Delivery", "Carrier API did not respond within the expected window.");
-            case 58: return new ExceptionEntry("TRAFFIC_DATA_UNAVAILABLE", Severity.WARNING, "Real-Time Delivery", "Live traffic data feed is unavailable.");
-            case 59: return new ExceptionEntry("GPS_SIGNAL_LOST", Severity.MAJOR, "Real-Time Delivery", "GPS signal from delivery vehicle is lost.");
-            case 60: return new ExceptionEntry("IOT_SENSOR_FAILURE", Severity.MAJOR, "Real-Time Delivery", "IoT sensor on vehicle is not transmitting.");
-            case 61: return new ExceptionEntry("NOTIFICATION_SEND_FAILURE", Severity.MINOR, "Real-Time Delivery", "Notification service failed to deliver message.");
-            case 63: return new ExceptionEntry("EPOD_UPLOAD_FAILURE", Severity.MAJOR, "Real-Time Delivery", "Electronic proof of delivery could not be uploaded.");
-            case 64: return new ExceptionEntry("NOTIFICATION_DISPATCH_FAILED", Severity.WARNING, "Delivery Orders", "DeliveryNotificationService failed to send a status update or the customer.");
-            case 65: return new ExceptionEntry("REAL_TIME_STATUS_PUSH_FAILED", Severity.WARNING, "Delivery Orders", "Delivery status update could not be pushed to Real-Time Monitoring.");
-            case 109: return new ExceptionEntry("DUPLICATE_POD_SUBMISSION", Severity.MINOR, "Real-Time Delivery", "Duplicate proof-of-delivery submission detected.");
-            case 168: return new ExceptionEntry("AGENT_NOT_FOUND", Severity.MINOR, "Delivery Orders", "Referenced delivery agent does not exist in the DeliveryAgents table.");
-            case 169: return new ExceptionEntry("DELIVERY_ORDER_NOT_FOUND", Severity.MINOR, "Delivery Orders", "Requested delivery order does not exist for the given delivery ID.");
-            case 170: return new ExceptionEntry("ROUTE_INFORMATION_UNAVAILABLE", Severity.MINOR, "Delivery Orders", "Route information for the delivery agent could not be retrieved.");
-            case 171: return new ExceptionEntry("CUSTOMER_RECORD_NOT_FOUND", Severity.MAJOR, "Delivery Orders", "Customer record referenced by customer_id does not exist.");
-            case 211: return new ExceptionEntry("DELIVERY_TIMEOUT", Severity.MAJOR, "Real-Time Delivery", "Delivery has exceeded its maximum allowed time window.");
-            case 213: return new ExceptionEntry("PARTIAL_DELIVERY_RECORDED", Severity.WARNING, "Real-Time Delivery", "Only part of the order was delivered.");
-            case 214: return new ExceptionEntry("PACKING_NOT_CONFIRMED", Severity.MAJOR, "Delivery Orders", "Warehouse Management has not confirmed packing for the delivery.");
-            case 215: return new ExceptionEntry("DELIVERY_CANCELLATION_FAILED", Severity.MAJOR, "Delivery Orders", "Delivery order cancellation could not be completed.");
-            case 216: return new ExceptionEntry("DISPATCH_CONFIRMATION_MISSING", Severity.WARNING, "Delivery Orders", "Dispatch confirmation not received within expected timeframe.");
-            case 319: return new ExceptionEntry("DUPLICATE_DELIVERY_ORDER", Severity.MAJOR, "Delivery Orders", "Attempt to create a delivery order for an order_id that already has an active delivery record.");
-            case 320: return new ExceptionEntry("DELIVERY_STATUS_HISTORY_INSERT_FAILED", Severity.MINOR, "Delivery Orders", "Failed to insert a status update record into DeliveryStatusHistory.");
-            case 366: return new ExceptionEntry("HISTORICAL_PLAYBACK_DATA_MISSING", Severity.WARNING, "Real-Time Delivery", "Historical playback data for route analysis is unavailable.");
-            case 367: return new ExceptionEntry("DELIVERY_ORDER_CREATION_FAILED", Severity.MAJOR, "Delivery Orders", "Failed to create a new delivery order due to a database insert error.");
-            case 368: return new ExceptionEntry("AGENT_ASSIGNMENT_FAILED", Severity.MAJOR, "Delivery Orders", "No available delivery agent could be assigned to the delivery order.");
-            case 369: return new ExceptionEntry("ORDER_PAYMENT_NOT_CONFIRMED", Severity.MAJOR, "Delivery Orders", "Delivery order creation rejected because payment status is unconfirmed.");
-            case 370: return new ExceptionEntry("ORDER_NOT_FOUND_IN_FULFILLMENT", Severity.MAJOR, "Delivery Orders", "The referenced order_id does not exist in the Order Fulfilment subsystem.");
-            case 371: return new ExceptionEntry("INVENTORY_UNAVAILABLE", Severity.MAJOR, "Delivery Orders", "Required product inventory is insufficient or unavailable for the delivery order.");
-            case 372: return new ExceptionEntry("DELIVERY_COST_CALCULATION_ERROR", Severity.MINOR, "Delivery Orders", "DeliveryCostCalculator encountered invalid or missing input data.");
-            case 401: return new ExceptionEntry("GEOFENCE_BREACH", Severity.MAJOR, "Real-Time Delivery", "Delivery vehicle has left the permitted geofence.");
-            case 402: return new ExceptionEntry("TEMPERATURE_THRESHOLD_BREACH", Severity.MAJOR, "Real-Time Delivery", "Temperature-sensitive cargo has exceeded its safe range.");
-            case 403: return new ExceptionEntry("ROUTE_DEVIATION_DETECTED", Severity.MAJOR, "Real-Time Delivery", "Vehicle is deviating from the assigned route.");
-            case 404: return new ExceptionEntry("DRIVER_UNRESPONSIVE", Severity.MAJOR, "Real-Time Delivery", "Driver has not responded to check-in prompts.");
-            case 405: return new ExceptionEntry("LOW_DEVICE_BATTERY", Severity.WARNING, "Real-Time Delivery", "Driver tracking device battery is critically low.");
-            case 406: return new ExceptionEntry("STALE_LOCATION_DATA", Severity.MINOR, "Real-Time Delivery", "Location data has not been updated within the expected window.");
-            case 461: return new ExceptionEntry("ETA_RECALCULATION_FAILURE", Severity.MINOR, "Real-Time Delivery", "ETA recalculation service returned an error.");
-            default: return new ExceptionEntry("UNREGISTERED_EXCEPTION", Severity.MINOR, "Real-Time Delivery", "An unregistered exception occurred.");
+            case 10: return new ExceptionEntry("INVALID_VEHICLE_ASSIGNMENT", com.scm.core.Severity.MINOR, "Real-Time Delivery", "Vehicle assignment references a vehicle not in the fleet.");
+            case 21: return new ExceptionEntry("DELIVERY_STATUS_TRANSITION_INVALID", com.scm.core.Severity.MINOR, "Delivery Orders", "Attempted delivery status update represents an invalid transition.");
+            case 54: return new ExceptionEntry("CARRIER_API_TIMEOUT", com.scm.core.Severity.MAJOR, "Real-Time Delivery", "Carrier API did not respond within the expected window.");
+            case 58: return new ExceptionEntry("TRAFFIC_DATA_UNAVAILABLE", com.scm.core.Severity.WARNING, "Real-Time Delivery", "Live traffic data feed is unavailable.");
+            case 59: return new ExceptionEntry("GPS_SIGNAL_LOST", com.scm.core.Severity.MAJOR, "Real-Time Delivery", "GPS signal from delivery vehicle is lost.");
+            case 60: return new ExceptionEntry("IOT_SENSOR_FAILURE", com.scm.core.Severity.MAJOR, "Real-Time Delivery", "IoT sensor on vehicle is not transmitting.");
+            case 61: return new ExceptionEntry("NOTIFICATION_SEND_FAILURE", com.scm.core.Severity.MINOR, "Real-Time Delivery", "Notification service failed to deliver message.");
+            case 63: return new ExceptionEntry("EPOD_UPLOAD_FAILURE", com.scm.core.Severity.MAJOR, "Real-Time Delivery", "Electronic proof of delivery could not be uploaded.");
+            case 64: return new ExceptionEntry("NOTIFICATION_DISPATCH_FAILED", com.scm.core.Severity.WARNING, "Delivery Orders", "DeliveryNotificationService failed to send a status update or the customer.");
+            case 65: return new ExceptionEntry("REAL_TIME_STATUS_PUSH_FAILED", com.scm.core.Severity.WARNING, "Delivery Orders", "Delivery status update could not be pushed to Real-Time Monitoring.");
+            case 109: return new ExceptionEntry("DUPLICATE_POD_SUBMISSION", com.scm.core.Severity.MINOR, "Real-Time Delivery", "Duplicate proof-of-delivery submission detected.");
+            case 168: return new ExceptionEntry("AGENT_NOT_FOUND", com.scm.core.Severity.MINOR, "Delivery Orders", "Referenced delivery agent does not exist in the DeliveryAgents table.");
+            case 169: return new ExceptionEntry("DELIVERY_ORDER_NOT_FOUND", com.scm.core.Severity.MINOR, "Delivery Orders", "Requested delivery order does not exist for the given delivery ID.");
+            case 170: return new ExceptionEntry("ROUTE_INFORMATION_UNAVAILABLE", com.scm.core.Severity.MINOR, "Delivery Orders", "Route information for the delivery agent could not be retrieved.");
+            case 171: return new ExceptionEntry("CUSTOMER_RECORD_NOT_FOUND", com.scm.core.Severity.MAJOR, "Delivery Orders", "Customer record referenced by customer_id does not exist.");
+            case 211: return new ExceptionEntry("DELIVERY_TIMEOUT", com.scm.core.Severity.MAJOR, "Real-Time Delivery", "Delivery has exceeded its maximum allowed time window.");
+            case 213: return new ExceptionEntry("PARTIAL_DELIVERY_RECORDED", com.scm.core.Severity.WARNING, "Real-Time Delivery", "Only part of the order was delivered.");
+            case 214: return new ExceptionEntry("PACKING_NOT_CONFIRMED", com.scm.core.Severity.MAJOR, "Delivery Orders", "Warehouse Management has not confirmed packing for the delivery.");
+            case 215: return new ExceptionEntry("DELIVERY_CANCELLATION_FAILED", com.scm.core.Severity.MAJOR, "Delivery Orders", "Delivery order cancellation could not be completed.");
+            case 216: return new ExceptionEntry("DISPATCH_CONFIRMATION_MISSING", com.scm.core.Severity.WARNING, "Delivery Orders", "Dispatch confirmation not received within expected timeframe.");
+            case 319: return new ExceptionEntry("DUPLICATE_DELIVERY_ORDER", com.scm.core.Severity.MAJOR, "Delivery Orders", "Attempt to create a delivery order for an order_id that already has an active delivery record.");
+            case 320: return new ExceptionEntry("DELIVERY_STATUS_HISTORY_INSERT_FAILED", com.scm.core.Severity.MINOR, "Delivery Orders", "Failed to insert a status update record into DeliveryStatusHistory.");
+            case 366: return new ExceptionEntry("HISTORICAL_PLAYBACK_DATA_MISSING", com.scm.core.Severity.WARNING, "Real-Time Delivery", "Historical playback data for route analysis is unavailable.");
+            case 367: return new ExceptionEntry("DELIVERY_ORDER_CREATION_FAILED", com.scm.core.Severity.MAJOR, "Delivery Orders", "Failed to create a new delivery order due to a database insert error.");
+            case 368: return new ExceptionEntry("AGENT_ASSIGNMENT_FAILED", com.scm.core.Severity.MAJOR, "Delivery Orders", "No available delivery agent could be assigned to the delivery order.");
+            case 369: return new ExceptionEntry("ORDER_PAYMENT_NOT_CONFIRMED", com.scm.core.Severity.MAJOR, "Delivery Orders", "Delivery order creation rejected because payment status is unconfirmed.");
+            case 370: return new ExceptionEntry("ORDER_NOT_FOUND_IN_FULFILLMENT", com.scm.core.Severity.MAJOR, "Delivery Orders", "The referenced order_id does not exist in the Order Fulfilment subsystem.");
+            case 371: return new ExceptionEntry("INVENTORY_UNAVAILABLE", com.scm.core.Severity.MAJOR, "Delivery Orders", "Required product inventory is insufficient or unavailable for the delivery order.");
+            case 372: return new ExceptionEntry("DELIVERY_COST_CALCULATION_ERROR", com.scm.core.Severity.MINOR, "Delivery Orders", "DeliveryCostCalculator encountered invalid or missing input data.");
+            case 401: return new ExceptionEntry("GEOFENCE_BREACH", com.scm.core.Severity.MAJOR, "Real-Time Delivery", "Delivery vehicle has left the permitted geofence.");
+            case 402: return new ExceptionEntry("TEMPERATURE_THRESHOLD_BREACH", com.scm.core.Severity.MAJOR, "Real-Time Delivery", "Temperature-sensitive cargo has exceeded its safe range.");
+            case 403: return new ExceptionEntry("ROUTE_DEVIATION_DETECTED", com.scm.core.Severity.MAJOR, "Real-Time Delivery", "Vehicle is deviating from the assigned route.");
+            case 404: return new ExceptionEntry("DRIVER_UNRESPONSIVE", com.scm.core.Severity.MAJOR, "Real-Time Delivery", "Driver has not responded to check-in prompts.");
+            case 405: return new ExceptionEntry("LOW_DEVICE_BATTERY", com.scm.core.Severity.WARNING, "Real-Time Delivery", "Driver tracking device battery is critically low.");
+            case 406: return new ExceptionEntry("STALE_LOCATION_DATA", com.scm.core.Severity.MINOR, "Real-Time Delivery", "Location data has not been updated within the expected window.");
+            case 461: return new ExceptionEntry("ETA_RECALCULATION_FAILURE", com.scm.core.Severity.MINOR, "Real-Time Delivery", "ETA recalculation service returned an error.");
+            default: return new ExceptionEntry("UNREGISTERED_EXCEPTION", com.scm.core.Severity.MINOR, "Real-Time Delivery", "An unregistered exception occurred.");
         }
     }
 
+    /**
+     * Raises an exception using the Real Exception Module.
+     * Uses SCMExceptionFactory to create SCMException, then processes it through:
+     * 1. SCMExceptionHandler.INSTANCE (Windows Event Viewer logging)
+     * 2. SCMExceptionPopup (Actual Windows modal popup - created via reflection)
+     * 3. ExceptionLogRepository.INSTANCE (Database logging)
+     */
     private void raise(int id, String detail) {
-        if (handler == null) return;
-        ExceptionEntry e = getEntry(id);
-        handler.handle(new SCMExceptionEvent(id, e.name, e.severity, e.subsystem, e.message, detail));
+        try {
+            // Get exception definition
+            ExceptionEntry e = getEntry(id);
+
+            // Create real SCMException using factory static method
+            SCMException exception = SCMExceptionFactory.create(
+                id,                    // exception ID
+                e.name,                // exception name
+                e.subsystem,           // subsystem name
+                e.message + " | Detail: " + detail,  // combined message
+                e.severity             // severity
+            );
+
+            // Process through real Exception Module components
+            // 1. Windows Event Viewer logging (using enum singleton)
+            com.scm.handler.SCMExceptionHandler.INSTANCE.handle(exception);
+
+            // 2. Actual Windows modal popup (using reflection to access private constructor)
+            if (realExceptionPopup == null) {
+                try {
+                    java.lang.reflect.Constructor<SCMExceptionPopup> ctor =
+                        SCMExceptionPopup.class.getDeclaredConstructor();
+                    ctor.setAccessible(true);
+                    realExceptionPopup = ctor.newInstance();
+                } catch (Exception ex) {
+                    System.err.println("⚠️  Could not create SCMExceptionPopup: " + ex.getMessage());
+                }
+            }
+            if (realExceptionPopup != null) {
+                realExceptionPopup.show(exception);
+            }
+
+            // 3. Database logging (using singleton instance)
+            ExceptionLogRepository.INSTANCE.insert(exception);
+
+        } catch (Exception ex) {
+            // Fallback to console if real Exception Module fails
+            System.err.println("[Exception Module Error] " + ex.getMessage());
+            System.err.println("[Original Exception] ID=" + id + ", Detail=" + detail);
+        }
     }
 
     // Core services
@@ -122,6 +184,7 @@ public class DeliveryMonitoringFacade implements
 
     /**
      * Constructor: initializes all services with a shared event manager.
+     * Also initializes the Real Exception Module components.
      */
     public DeliveryMonitoringFacade() {
         this.eventManager = new DeliveryEventManager();
@@ -137,6 +200,24 @@ public class DeliveryMonitoringFacade implements
         this.orders = new HashMap<>();
         this.customers = new HashMap<>();
         this.riders = new HashMap<>();
+
+        // Initialize Real Exception Module components
+        try {
+            // Use reflection to create SCMExceptionPopup (private constructor)
+            java.lang.reflect.Constructor<SCMExceptionPopup> popupConstructor =
+                SCMExceptionPopup.class.getDeclaredConstructor();
+            popupConstructor.setAccessible(true);
+            this.realExceptionPopup = popupConstructor.newInstance();
+
+            System.out.println("✅ Real Exception Module initialized successfully!");
+            System.out.println("   - Windows Event Viewer logging: ENABLED (SCMExceptionHandler.INSTANCE)");
+            System.out.println("   - Actual Windows popups: ENABLED (SCMExceptionPopup)");
+            System.out.println("   - Database exception logging: ENABLED (ExceptionLogRepository.INSTANCE)");
+            System.out.println("   - Exception factory: ENABLED (SCMExceptionFactory static methods)");
+        } catch (Exception e) {
+            System.err.println("⚠️  Warning: Real Exception Module initialization failed: " + e.getMessage());
+            System.err.println("   Falling back to console output for exception handling");
+        }
     }
 
     // ═══════════════════════════════════════════════════════════

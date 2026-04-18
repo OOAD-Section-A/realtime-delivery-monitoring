@@ -1,14 +1,16 @@
 package com.ramennoodles.delivery.model;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.UUID;
 
 /**
  * Represents a single GPS ping recorded from a device.
  * High-frequency writes — GPS ping every few seconds.
- * 
+ *
  * Shared with: CenterDiv (Transport & Logistics) subsystem.
- * 
+ *
  * Relationships:
  *  - GPSPing belongs to 1 Device
  *  - GPSPing belongs to 1 Rider
@@ -20,7 +22,7 @@ public class GPSPing {
     private String riderId;        // FK -> Rider
     private double latitude;
     private double longitude;
-    private LocalDateTime timestamp;
+    private Instant timestamp;     // Changed to Instant for database compatibility
 
     // --- Factory Method ---
     public static GPSPing save(double latitude, double longitude, String deviceId, String riderId) {
@@ -30,8 +32,24 @@ public class GPSPing {
         ping.riderId = riderId;
         ping.latitude = latitude;
         ping.longitude = longitude;
-        ping.timestamp = LocalDateTime.now();
+        ping.timestamp = Instant.now();
         return ping;
+    }
+
+    // --- Constructor for Database Integration ---
+    public GPSPing(String pingId, String deviceId, String riderId,
+                   double latitude, double longitude, Instant timestamp) {
+        this.pingId = pingId;
+        this.deviceId = deviceId;
+        this.riderId = riderId;
+        this.latitude = latitude;
+        this.longitude = longitude;
+        this.timestamp = timestamp;
+    }
+
+    // --- Default Constructor ---
+    public GPSPing() {
+        this.timestamp = Instant.now();
     }
 
     // --- Business Methods ---
@@ -57,7 +75,11 @@ public class GPSPing {
     public double getLatitude() { return latitude; }
     public double getLongitude() { return longitude; }
 
-    public LocalDateTime getTimestamp() { return timestamp; }
+    public Instant getTimestamp() { return timestamp; }
+
+    public LocalDateTime getTimestampAsLocal() {
+        return LocalDateTime.ofInstant(timestamp, ZoneId.systemDefault());
+    }
 
     @Override
     public String toString() {

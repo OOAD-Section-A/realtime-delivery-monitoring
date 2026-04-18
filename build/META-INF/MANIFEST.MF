@@ -1,0 +1,23 @@
+Manifest-Version: 1.0
+Implementation-Title: Ramen Noodles Delivery Monitoring
+Implementation-Version: 1.0.0
+Implementation-Vendor: Ramen Noodles Team (Team #9)
+Specification-Title: Real-Time Delivery Monitoring System
+Specification-Version: 1.0.0
+Specification-Vendor: OOAD Lab Project
+Main-Class: com.ramennoodles.delivery.facade.DeliveryMonitoringFacade
+
+Name: Real-Time Delivery Monitoring System
+Short-Description: Comprehensive delivery tracking and monitoring for SCM
+Category: Supply Chain Management
+URL: https://github.com/ramennoodles/ooad-delivery-monitoring
+Description: Real-Time Delivery Monitoring System provides GPS tracking, geofencing, ETA calculation, and delivery management capabilities for supply chain operations. Built with Facade, Observer, and Strategy patterns. Includes comprehensive exception handling and database integration.
+
+Sealed: false
+Independent: Yes
+Class-Path: src/main/java
+Built-By: Ramen Noodles Team (Aaron, Preetham, Pranav, Aman)
+Build-Date: 2026-04-19
+Build-Jdk: 11+
+Build-Jdk-Spec: 11+
+Created-By: Ramen Noodles Team

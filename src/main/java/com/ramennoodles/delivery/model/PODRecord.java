@@ -53,6 +53,7 @@ public class PODRecord {
     public String getNotes() { return notes; }
     public LocalDateTime getSubmittedAt() { return submittedAt; }
     public String getSubmittedBy() { return submittedBy; }
+    public String getRiderId() { return submittedBy; } // Alias for compatibility
 
     @Override
     public String toString() {

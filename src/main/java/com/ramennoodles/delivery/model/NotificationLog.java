@@ -8,15 +8,15 @@ import java.util.UUID;
 /**
  * Represents a notification sent to a customer.
  * Tracks notification status and delivery confirmation.
- * 
+ *
  * Shared with: DEI Hires (Delivery Orders) subsystem.
- * 
+ *
  * Relationships:
  *  - NotificationLog belongs to 1 Order
  *  - NotificationLog belongs to 1 Customer
  */
 public class NotificationLog {
-    private String notifId;          // PK
+    private String notificationId;   // PK - renamed for database consistency
     private String orderId;          // FK -> Order
     private String customerId;       // FK -> Customer
     private ChannelType channel;
@@ -36,7 +36,7 @@ public class NotificationLog {
     private static NotificationLog createNotification(String orderId, String customerId,
                                                        ChannelType channel, String message) {
         NotificationLog log = new NotificationLog();
-        log.notifId = "NTF-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        log.notificationId = "NTF-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         log.orderId = orderId;
         log.customerId = customerId;
         log.channel = channel;
@@ -44,6 +44,12 @@ public class NotificationLog {
         log.sentAt = LocalDateTime.now();
         log.deliveryStatus = DeliveryStatus.SENT;
         return log;
+    }
+
+    // --- Default Constructor ---
+    public NotificationLog() {
+        this.sentAt = LocalDateTime.now();
+        this.deliveryStatus = DeliveryStatus.PENDING;
     }
 
     // --- Business Methods ---
@@ -59,17 +65,19 @@ public class NotificationLog {
     }
 
     // --- Getters ---
-    public String getNotifId() { return notifId; }
+    public String getNotificationId() { return notificationId; }
+    public String getNotifId() { return notificationId; } // Backward compatibility
     public String getOrderId() { return orderId; }
     public String getCustomerId() { return customerId; }
     public ChannelType getChannel() { return channel; }
     public String getMessage() { return message; }
     public LocalDateTime getSentAt() { return sentAt; }
     public DeliveryStatus getDeliveryStatus() { return deliveryStatus; }
+    public DeliveryStatus getStatus() { return deliveryStatus; } // Alternative getter
 
     @Override
     public String toString() {
         return String.format("NotificationLog[%s, order=%s, channel=%s, status=%s, msg='%s']",
-                notifId, orderId, channel, deliveryStatus, message);
+                notificationId, orderId, channel, deliveryStatus, message);
     }
 }
