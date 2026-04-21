@@ -143,7 +143,15 @@ public class Main {
         System.out.println("🏍️  STEP 3: Assigning Rider (from CenterDiv fleet)");
         System.out.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
-        system.assignRiderToOrder(order.getOrderId(), rider.getRiderId());
+        Rider transportRider = system.assignRiderFromTransportPool(order.getOrderId(), "BANGALORE-CENTRAL");
+        if (transportRider != null) {
+            rider = transportRider;
+            device = system.registerDeviceForRider(rider);
+            System.out.println("   ✅ Assigned from CenterDiv pool: " + rider.getRiderId());
+        } else {
+            system.assignRiderToOrder(order.getOrderId(), rider.getRiderId());
+            System.out.println("   ⚠️  CenterDiv pool unavailable, using local rider fallback");
+        }
         System.out.println();
 
         // ═══════════════════════════════════════════════════════

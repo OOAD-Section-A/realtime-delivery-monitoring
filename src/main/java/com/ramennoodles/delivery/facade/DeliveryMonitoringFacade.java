@@ -5,6 +5,7 @@ import com.ramennoodles.delivery.model.*;
 import com.ramennoodles.delivery.observer.*;
 import com.ramennoodles.delivery.service.*;
 import com.ramennoodles.delivery.strategy.*;
+import com.ramennoodles.delivery.integration.*;
 
 import java.util.*;
 
@@ -176,6 +177,7 @@ public class DeliveryMonitoringFacade implements
     private final RoutePlanService routePlanService;
     private final FleetDashboardService dashboardService;
     private final DeliveryEventManager eventManager;
+    private final ITransportLogisticsService transportLogisticsService;
 
     // In-memory order & customer registry
     private final Map<String, Order> orders;
@@ -196,6 +198,7 @@ public class DeliveryMonitoringFacade implements
         this.notificationService = new NotificationService();
         this.routePlanService = new RoutePlanService();
         this.dashboardService = new FleetDashboardService(gpsService, statusService, etaService);
+        this.transportLogisticsService = new CenterDivTransportAdapter();
 
         this.orders = new HashMap<>();
         this.customers = new HashMap<>();
@@ -286,8 +289,14 @@ public class DeliveryMonitoringFacade implements
             // Create geofence zones (200m radius)
             geofencingService.createZonesForOrder(order, 200);
 
-            // Create route plan
-            routePlanService.createRoutePlan(order.getOrderId(), pickupCoord, dropoffCoord);
+            // Create route plan using CenterDiv optimization when available.
+            RoutePlan optimizedRoute = transportLogisticsService.calculateOptimalRoute(
+                    order.getOrderId(), pickupCoord, dropoffCoord, Collections.emptyList());
+            if (optimizedRoute != null && optimizedRoute.getWaypoints().size() >= 2) {
+                routePlanService.createRoutePlan(order.getOrderId(), optimizedRoute.getWaypoints());
+            } else {
+                routePlanService.createRoutePlan(order.getOrderId(), pickupCoord, dropoffCoord);
+            }
 
             // Track in dashboard
             dashboardService.trackOrder(order);
@@ -352,6 +361,56 @@ public class DeliveryMonitoringFacade implements
         } catch (Exception e) {
             fireProcessingError(368, "AgentAssignment", orderId, e.getMessage());
         }
+    }
+
+    /**
+     * Assigns the first available rider from CenterDiv transport pool for a zone.
+     */
+    public Rider assignRiderFromTransportPool(String orderId, String zone) {
+        Order order = orders.get(orderId);
+        if (order == null) {
+            fireResourceNotFound(169, "DeliveryOrder", orderId);
+            return null;
+        }
+
+        List<Rider> candidates = transportLogisticsService.getAvailableRiders(zone);
+        for (Rider candidate : candidates) {
+            Rider local = upsertTransportRider(candidate);
+            if (local != null && local.isAvailable()) {
+                assignRiderToOrder(orderId, local.getRiderId());
+                return local;
+            }
+        }
+
+        fireResourceExhausted(368, "TransportRiderPool", zone, 1, 0);
+        return null;
+    }
+
+    private Rider upsertTransportRider(Rider transportRider) {
+        if (transportRider == null || transportRider.getRiderId() == null) {
+            return null;
+        }
+
+        Rider local = riders.get(transportRider.getRiderId());
+        if (local == null) {
+            riders.put(transportRider.getRiderId(), transportRider);
+            dashboardService.trackRider(transportRider);
+            return transportRider;
+        }
+
+        if (transportRider.getName() != null) {
+            local.setName(transportRider.getName());
+        }
+        if (transportRider.getPhone() != null) {
+            local.setPhone(transportRider.getPhone());
+        }
+        if (transportRider.getVehicleType() != null) {
+            local.setVehicleType(transportRider.getVehicleType());
+        }
+        if (transportRider.getStatus() != null) {
+            local.updateStatus(transportRider.getStatus());
+        }
+        return local;
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -506,6 +565,14 @@ public class DeliveryMonitoringFacade implements
             rider.activate(); // Back to available
         }
 
+        if (riderId != null) {
+            try {
+                transportLogisticsService.notifyRiderAvailable(riderId);
+            } catch (Exception e) {
+                firePartialConnectivity(65, "CenterDiv", "rider release callback");
+            }
+        }
+
         // Notify customer
         try {
             notificationService.notifyMilestone(orderId, order.getCustomerId(),
@@ -597,6 +664,7 @@ public class DeliveryMonitoringFacade implements
     public Map<String, Customer> getCustomers() { return Collections.unmodifiableMap(customers); }
     public Map<String, Rider> getRiders() { return Collections.unmodifiableMap(riders); }
     public NotificationService getNotificationService() { return notificationService; }
+    public ITransportLogisticsService getTransportLogisticsService() { return transportLogisticsService; }
 
     // ─────────────────────────────────────────────────────────────
     // CATEGORY INTERFACE IMPLEMENTATIONS (All 31 fire* methods)

@@ -24,10 +24,25 @@ echo Main-Class: com.ramennoodles.delivery.facade.DeliveryMonitoringFacade >> bu
 REM Create lib directory if needed
 if not exist lib mkdir lib
 
+REM Package integration jar
+set "OUTPUT_JAR=lib\ramen-noodles-delivery-monitoring.jar"
+if exist "%OUTPUT_JAR%" del /F /Q "%OUTPUT_JAR%"
+
+echo 📦 Creating integration JAR...
+pushd build
+jar cvfm ..\%OUTPUT_JAR% META-INF\MANIFEST.MF com
+if errorlevel 1 (
+	popd
+	echo.
+	echo ❌ JAR creation failed.
+	exit /b 1
+)
+popd
+
 echo.
 echo ✅ Build structure created!
 echo.
-echo 📦 To create JAR: cd build && jar cvfm ..\lib\ramen-noodles-delivery-monitoring.jar META-INF\MANIFEST.MF com
+echo 📦 Output: %OUTPUT_JAR%
 echo.
 echo 🎯 Integration JAR ready for partner teams!
 pause
