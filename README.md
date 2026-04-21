@@ -317,6 +317,13 @@ Comprehensive SCM Exception Handler integration:
 
 ---
 
+## 🤝 Contributing
+
+We welcome contributions from everyone! Whether you're part of team Ramen Noodles, a partner team, or an external developer. 
+Please check out our [Contributing Guidelines](CONTRIBUTING.md) to see where you can help out.
+
+---
+
 ## 🔧 Build System
 
 ### Maven Build (New!)
@@ -339,7 +346,7 @@ mvn clean install
 
 ---
 
-**Last Updated**: 2026-04-20  
+**Last Updated**: 2026-04-21  
 **Version**: 1.0.0  
 **Status**: ✅ Production Ready  
 **Build**: Maven-based with Java 17 bytecode  
